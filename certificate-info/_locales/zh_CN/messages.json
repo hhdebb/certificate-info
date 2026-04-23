@@ -31,6 +31,30 @@
   "popupFetchErrorMessage": {
     "message": "请尝试重新加载页面。本扩展仅对公网可访问的站点生效。"
   },
+  "validationDV": {
+    "message": "域名控制验证"
+  },
+  "validationDVMessage": {
+    "message": "已验证网站运营方对此域名的控制权。"
+  },
+  "validationIV": {
+    "message": "身份验证"
+  },
+  "validationIVMessage": {
+    "message": "已验证网站运营方（个人或组织）的身份。"
+  },
+  "validationEV": {
+    "message": "扩展验证"
+  },
+  "validationEVMessage": {
+    "message": "已验证网站运营方（通常为组织）的身份。"
+  },
+  "validationNone": {
+    "message": "未通过验证"
+  },
+  "validationNoneMessage": {
+    "message": "无法验证此站点的证书。"
+  },
   "sectionOrganization": {
     "message": "组织"
   },

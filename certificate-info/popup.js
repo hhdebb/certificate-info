@@ -28,6 +28,25 @@ function show(id, visible) {
   if (el) el.hidden = !visible;
 }
 
+// Map the server's short code (DV/IV/EV/!) to localized strings. Returns ''
+// when no translation key applies so callers can fall back to server text.
+const VALIDATION_KEY_BY_SHORT = {
+  DV: { title: 'validationDV', message: 'validationDVMessage' },
+  IV: { title: 'validationIV', message: 'validationIVMessage' },
+  EV: { title: 'validationEV', message: 'validationEVMessage' },
+  '!': { title: 'validationNone', message: 'validationNoneMessage' }
+};
+
+function localizedValidation(data) {
+  const keys = VALIDATION_KEY_BY_SHORT[data && data.validation_result_short];
+  return keys ? chrome.i18n.getMessage(keys.title) : '';
+}
+
+function localizedMessage(data) {
+  const keys = VALIDATION_KEY_BY_SHORT[data && data.validation_result_short];
+  return keys ? chrome.i18n.getMessage(keys.message) : '';
+}
+
 async function getPopupData() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return null;
@@ -79,12 +98,12 @@ function render(data) {
   }
 
   const resultEl = $('validationResult');
-  resultEl.textContent = data.validation_result || '';
+  resultEl.textContent = localizedValidation(data) || data.validation_result || '';
   if (data.result_color_hex) {
     resultEl.style.background = data.result_color_hex;
   }
 
-  setText('message', data.message || '');
+  setText('message', localizedMessage(data) || data.message || '');
 
   // Identity
   if (data.subject_organization) {

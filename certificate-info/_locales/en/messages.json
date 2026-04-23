@@ -31,6 +31,30 @@
   "popupFetchErrorMessage": {
     "message": "Try reloading the page. Note that this extension only works with publicly accessible sites."
   },
+  "validationDV": {
+    "message": "Domain Control Validation"
+  },
+  "validationDVMessage": {
+    "message": "The website operator's control over this domain has been validated."
+  },
+  "validationIV": {
+    "message": "Identity Validation"
+  },
+  "validationIVMessage": {
+    "message": "The website operator's identity (individual or organization) has been validated."
+  },
+  "validationEV": {
+    "message": "Extended Validation"
+  },
+  "validationEVMessage": {
+    "message": "The website operator's identity (usually organization) has been validated."
+  },
+  "validationNone": {
+    "message": "Not Validated"
+  },
+  "validationNoneMessage": {
+    "message": "Could not validate this site's certificate."
+  },
   "sectionOrganization": {
     "message": "Organization"
   },
