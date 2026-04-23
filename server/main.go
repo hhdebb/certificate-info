@@ -175,7 +175,8 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, "certificate-info\nhttps://github.com/hhdebb/certificate-info")
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprint(w, `{"status":"ok"}`)
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
