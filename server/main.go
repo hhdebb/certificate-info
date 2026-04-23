@@ -167,29 +167,28 @@ func validateHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: remove this
 	if len(hostname) == 0 {
 		hostname = r.URL.Query().Get("host")
-		if len(hostname) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, "{\"message\":\"Invalid parameters\"}")
-			return
-		}
 	}
 
-	result := ""
+	if len(hostname) == 0 || !isValidHostname(hostname) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"message":"Invalid parameters"}`)
+		return
+	}
 
 	// Check cache
 	validationCacheMutex.RLock()
 	v, ok := validationResultCache[hostname]
 	validationCacheMutex.RUnlock()
+
+	var result string
 	if ok {
 		result = v.result
 	} else {
-		// Validate
 		resultMap := validateHost(hostname)
 		marshalled, _ := json.Marshal(resultMap)
 		result = string(marshalled)
 
-		// Cache response
 		validationCacheMutex.Lock()
 		validationResultCache[hostname] = &validationCacheEntry{
 			result:      result,
@@ -197,8 +196,28 @@ func validateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		validationCacheMutex.Unlock()
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(w, result)
+}
+
+// isValidHostname performs lightweight validation on the supplied host. It
+// rejects obviously malformed inputs so we don't forward them to tls.Dial.
+func isValidHostname(host string) bool {
+	if len(host) == 0 || len(host) > 253 {
+		return false
+	}
+	for _, c := range host {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
+		case c == '.' || c == '-' || c == ':':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // Validate host and return response
@@ -235,8 +254,16 @@ func validateHost(hostname string) map[string]string {
 	} else {
 		defer conn.Close()
 
-		// Get certificate info
-		cert := conn.ConnectionState().PeerCertificates[0]
+		peerCerts := conn.ConnectionState().PeerCertificates
+		if len(peerCerts) == 0 {
+			return map[string]string{
+				"validation_result":       "Not Validated",
+				"validation_result_short": "!",
+				"result_color_hex":        "#FF1744",
+				"message":                 "TLS handshake returned no peer certificates.",
+			}
+		}
+		cert := peerCerts[0]
 		certInfo := getCertInfo(cert)
 
 		subjectCommonName = certInfo["subject_common_name"]
@@ -368,6 +395,15 @@ func main() {
 	http.HandleFunc("/validate", validateHandler)
 
 	// Start serving
-	log.Println("Starting service...")
-	http.ListenAndServe(":"+port, nil)
+	log.Println("Starting service on :" + port)
+	server := &http.Server{
+		Addr:              ":" + port,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("server terminated: %v", err)
+	}
 }
