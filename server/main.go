@@ -175,7 +175,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, "certificate-info\nhttps://github.com/blupig/certificate-info")
+	fmt.Fprint(w, "certificate-info\nhttps://github.com/hhdebb/certificate-info")
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
