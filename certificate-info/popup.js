@@ -70,7 +70,7 @@ function formatExpiration(data) {
 
   const days = data.expiration_days_until;
   const msgEl = $('expirationMessage');
-  msgEl.classList.remove('is-error', 'is-warning');
+  msgEl.classList.remove('is-error', 'is-warning', 'is-ok');
 
   if (days <= 0) {
     msgEl.textContent = chrome.i18n.getMessage('expirationExpired');
@@ -82,6 +82,8 @@ function formatExpiration(data) {
       msgEl.classList.add('is-error');
     } else if (data.expiration_class === 'ExpirationWarning') {
       msgEl.classList.add('is-warning');
+    } else if (data.expiration_class === 'ExpirationOk') {
+      msgEl.classList.add('is-ok');
     }
   }
   show('expirationMessage', true);

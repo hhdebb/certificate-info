@@ -109,6 +109,8 @@ function annotateExpiration(data) {
         expirationClass = 'ExpirationError';
       } else if (daysUntil <= EXPIRATION_WARN_DAYS) {
         expirationClass = 'ExpirationWarning';
+      } else {
+        expirationClass = 'ExpirationOk';
       }
     }
   }

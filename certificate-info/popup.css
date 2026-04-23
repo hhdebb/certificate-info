@@ -10,6 +10,7 @@
   --accent: #888;
   --error: #FF1744;
   --warning: #EF6C00;
+  --ok: #2CBE4E;
   --radius: 8px;
 }
 
@@ -108,6 +109,22 @@ body {
 .section-value.is-warning {
   color: var(--warning);
   font-weight: 600;
+}
+
+.section-value.is-ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.expiration-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.expiration-row .section-value.subtle {
+  margin-top: 0;
 }
 
 [hidden] { display: none !important; }
