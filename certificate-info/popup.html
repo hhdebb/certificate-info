@@ -1,78 +1,37 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <script src="popup.js"></script>
-  <style>
-    body {
-      color: #777;
-      width: 240px;
-      padding-top: 5px;
-      padding-bottom: 5px;
-      padding-left: 10px;
-      padding-right: 10px;
-      font-family: 'Roboto', arial, sans-serif;
-      font-weight: 300;
-      font-size: 13px;
-      line-height: 150%;
-    }
-
-    .title-box {
-      color: #FFF;
-      background: #888;
-      padding: 4px;
-      border-radius: 4px;
-    }
-
-    .text-small {
-      font-size: 12px;
-      color: #878787;
-    }
-
-    .ExpirationError {
-      color: #FF1744;
-    }
-
-    .ExpirationWarning {
-      color: #EF6C00;
-    }
-
-    .tooltip {
-      position: relative;
-      display: inline-block;
-    }
-
-    .tooltip .tooltiptext {
-      visibility: hidden;
-      width: 120px;
-      background-color: #000;
-      color: #FFF;
-      text-align: center;
-      padding: 5px 0;
-      border-radius: 6px;
-
-      position: absolute;
-      z-index: 1;
-    }
-
-    .tooltip:hover .tooltiptext {
-      visibility: visible;
-    }
-  </style>
+  <meta charset="utf-8">
+  <title>Certificate Info</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
 </head>
-
 <body>
-  <p><span id="lblValidationResult" class="title-box">No HTTP(S) page loaded</span></p>
-  <p style="margin-top: 18px;"><span id="lblSubjectOrganization"><b></b></span></p>
-  <p id="pIssuer" style="display: none;">
-    <span>Issuer:</span><br />
-    <span id="lblIssuerOrganization"><b></b></span><br />
-    <span id="lblIssuerCommonName" class="text-small"></span><br />
-  </p>
-  <p><span id="lblMessage">Certificate information will display here when you open an HTTPS page.</span></p>
-  <p><span>Expiration:</span><br />
-    <span id="lblExpirationDate"></span><br />
-    <span id="lblExpirationMessage"></span></p>
-</body>
+  <header class="result-banner">
+    <span id="validationResult" class="result-label" data-i18n="popupNoPage">No HTTP(S) page loaded</span>
+  </header>
 
+  <main class="content">
+    <p id="message" class="message" data-i18n="popupIntro">
+      Certificate information will display here when you open an HTTPS page.
+    </p>
+
+    <section id="identitySection" class="section" hidden>
+      <div class="section-label" data-i18n="sectionOrganization">Organization</div>
+      <div id="subjectOrganization" class="section-value strong"></div>
+    </section>
+
+    <section id="issuerSection" class="section" hidden>
+      <div class="section-label" data-i18n="sectionIssuer">Issuer</div>
+      <div id="issuerOrganization" class="section-value strong"></div>
+      <div id="issuerCommonName" class="section-value subtle"></div>
+    </section>
+
+    <section id="expirationSection" class="section" hidden>
+      <div class="section-label" data-i18n="sectionExpires">Expires</div>
+      <div id="expirationDate" class="section-value strong"></div>
+      <div id="expirationMessage" class="section-value subtle"></div>
+    </section>
+  </main>
+</body>
 </html>

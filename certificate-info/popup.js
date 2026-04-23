@@ -14,58 +14,112 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-document.addEventListener('DOMContentLoaded', function () {
-  var background = chrome.extension.getBackgroundPage();
-  var currentTabId = background.currentTabId;
-  var popupData = background.popupData[currentTabId];
+'use strict';
 
-  if (typeof popupData === 'undefined') return;
+function $(id) { return document.getElementById(id); }
 
-  document.getElementById('lblValidationResult').style['background'] = popupData['result_color_hex'];
-  document.getElementById('lblValidationResult').innerHTML = popupData['validation_result'];
-  document.getElementById('lblMessage').innerHTML = popupData['message'];
+function setText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value == null ? '' : String(value);
+}
+
+function show(id, visible) {
+  const el = $(id);
+  if (el) el.hidden = !visible;
+}
+
+async function getPopupData() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab) return null;
+  const key = `popup:${tab.id}`;
+  const store = await chrome.storage.session.get(key);
+  return store[key] || null;
+}
+
+function formatExpiration(data) {
+  if (!data.not_after) {
+    setText('expirationDate', chrome.i18n.getMessage('expirationUnknown'));
+    $('expirationDate').classList.add('is-error');
+    show('expirationMessage', false);
+    return;
+  }
+
+  const notAfter = new Date(data.not_after);
+  const dateEl = $('expirationDate');
+  dateEl.textContent = notAfter.toLocaleDateString();
+  dateEl.title = notAfter.toString();
+
+  const days = data.expiration_days_until;
+  const msgEl = $('expirationMessage');
+  msgEl.classList.remove('is-error', 'is-warning');
+
+  if (days <= 0) {
+    msgEl.textContent = chrome.i18n.getMessage('expirationExpired');
+    msgEl.classList.add('is-error');
+  } else {
+    const key = days === 1 ? 'expirationInDay' : 'expirationInDays';
+    msgEl.textContent = chrome.i18n.getMessage(key, [String(days)]);
+    if (data.expiration_class === 'ExpirationError') {
+      msgEl.classList.add('is-error');
+    } else if (data.expiration_class === 'ExpirationWarning') {
+      msgEl.classList.add('is-warning');
+    }
+  }
+  show('expirationMessage', true);
+}
+
+function render(data) {
+  if (!data) {
+    setText('validationResult', chrome.i18n.getMessage('popupNoPage'));
+    setText('message', chrome.i18n.getMessage('popupIntro'));
+    show('identitySection', false);
+    show('issuerSection', false);
+    show('expirationSection', false);
+    return;
+  }
+
+  const resultEl = $('validationResult');
+  resultEl.textContent = data.validation_result || '';
+  if (data.result_color_hex) {
+    resultEl.style.background = data.result_color_hex;
+  }
+
+  setText('message', data.message || '');
 
   // Identity
-  if (popupData["subject_organization"].length > 0) {
-    document.getElementById('lblSubjectOrganization').innerHTML = 'Organization:<br><b>' + popupData['subject_organization'] + '</b>';
+  if (data.subject_organization) {
+    setText('subjectOrganization', data.subject_organization);
+    show('identitySection', true);
   } else {
-    document.getElementById('lblSubjectOrganization').innerHTML = '';
+    show('identitySection', false);
   }
 
   // Issuer
-  if (popupData["issuer_common_name"].length > 0) {
-    document.getElementById('pIssuer').style['display'] = 'block';
-    document.getElementById('lblIssuerOrganization').innerHTML = '<b>' + popupData['issuer_organization'] + '</b>';
-    document.getElementById('lblIssuerCommonName').innerHTML = popupData['issuer_common_name'];
+  if (data.issuer_common_name) {
+    setText('issuerOrganization', data.issuer_organization || '');
+    setText('issuerCommonName', data.issuer_common_name);
+    show('issuerSection', true);
   } else {
-    document.getElementById('pIssuer').style['display'] = 'none';
+    show('issuerSection', false);
   }
 
   // Expiration
-  if (typeof (popupData["not_after"]) !== 'undefined' && popupData["not_after"].length > 0) {
-
-    var notAfter = new Date(popupData['not_after']);
-
-    var expiration_days_until = popupData['expiration_days_until'];
-    var expiration_class = popupData['expiration_class'];
-
-    // display the certification expiration date with a tooltip
-    document.getElementById('lblExpirationDate').innerHTML =
-      '<div class="tooltip">' +
-      notAfter.toLocaleDateString() +
-      '<span class="tooltiptext">' + notAfter + '</span>' +
-      '</div>'
-
-    // display detail about how many days until expiration, all in appropriate styling based on days until expiration
-    if (expiration_days_until <= 0) {
-      document.getElementById('lblExpirationMessage').innerHTML = '<b class="ExpirationError">Certificate Expired</b>';
-      // expired
-    } else {
-      document.getElementById('lblExpirationMessage').innerHTML = '<b class="' + expiration_class + '">Certificate will expire in ' + expiration_days_until + ' day(s)</b>';
-    }
+  if (typeof data.not_after === 'string') {
+    show('expirationSection', true);
+    formatExpiration(data);
   } else {
-    // An error occurred when trying to get certificate information
-    document.getElementById('lblExpirationDate').innerHTML = '<span class="ExpirationError">Unknown</span>';
-    document.getElementById('lblExpirationMessage').style['display'] = 'none';
+    show('expirationSection', false);
   }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Localize static labels.
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const msg = chrome.i18n.getMessage(el.dataset.i18n);
+    if (msg) el.textContent = msg;
+  });
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+
+  const data = await getPopupData();
+  render(data);
 });

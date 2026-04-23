@@ -14,246 +14,255 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Built-in colors
-var colors = { '': '#888', 'gray': '#888', 'red': '#FF1744', 'orange': '#EF6C00' }
+'use strict';
 
-// In-memory data store
-var cachedValidationData = {};
-var popupData = {};
-var currentTabId = 0;
+// Load shared configuration (API endpoint, timeouts, etc.).
+// This must be the first statement so constants below are defined.
+// eslint-disable-next-line no-undef
+importScripts('config.js');
 
-// constants around expiration
-const oneDay = 1000 * 60 * 60 * 24;
-const expirationErrorThresholdDays = 14;      // number of days before certificate management is an ERROR
-const expirationWarningThresholdDays = 29;    // number of days before certificate management is a WARNING
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const API_ENDPOINT = CERT_INFO_CONFIG.API_BASE_URL + CERT_INFO_CONFIG.VALIDATE_PATH;
+const CACHE_TTL_MS = CERT_INFO_CONFIG.CACHE_TTL_MS;
+const FETCH_TIMEOUT_MS = CERT_INFO_CONFIG.FETCH_TIMEOUT_MS;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const EXPIRATION_ERROR_DAYS = CERT_INFO_CONFIG.EXPIRATION_ERROR_DAYS;
+const EXPIRATION_WARN_DAYS = CERT_INFO_CONFIG.EXPIRATION_WARN_DAYS;
 
-// Update all tabs on start
-updateAllTabs();
+const COLOR = {
+  gray:   '#888',
+  red:    '#FF1744',
+  orange: '#EF6C00'
+};
 
-// Periodically delete cached data
-setInterval(function(){
-  cachedValidationData = {};
-}, 1000 * 60 * 5)
+// ---------------------------------------------------------------------------
+// In-memory validation cache (hostname -> { data, expiresAt })
+// Service workers can be terminated; cache is best-effort.
+// ---------------------------------------------------------------------------
+const validationCache = new Map();
 
-// Perform update on all tabs
-function updateAllTabs() {
-  chrome.tabs.query({}, function (tab) {
-    for (var i = 0; i < tab.length; i++) {
-      updateTab(tab[i], false);
-    }
-  });
-
-  // Update currentTabId
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    if (tabs.length > 0) {
-      currentTabId = tabs[0].id;
-    }
-  });
+function cacheGet(hostname) {
+  const entry = validationCache.get(hostname);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    validationCache.delete(hostname);
+    return null;
+  }
+  return entry.data;
 }
 
-// Update on windows focus change
-chrome.windows.onFocusChanged.addListener(function (windowId) {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    if (tabs.length > 0) {
-      currentTabId = tabs[0].id;
-    }
-  });
-});
-
-// Update on tab activation
-chrome.tabs.onActivated.addListener(function (activeInfo) {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    currentTabId = tabs[0].id;
-  });
-});
-
-// Update on content change
-chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-  // Update tab only when tab status is 'loading'
-  if ('status' in changeInfo && changeInfo['status'] === 'loading') {
-    updateTab(tab);
-  }
-
-  // Also update on HTTPS error
-  if ('title' in changeInfo && changeInfo['title'] === 'Privacy error') {
-    updateTab(tab);
-  }
-});
-
-// Get connection protocol
-function pageProtocol(url) {
-  if (url.substring(0, 7) === 'http://') {
-    return 'http';
-  } else if (url.substring(0, 8) === 'https://') {
-    return 'https';
-  } else {
-    return '';
-  }
+function cacheSet(hostname, data) {
+  validationCache.set(hostname, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
-// Get hostname
-function extractHostname(url) {
-  // Extract hostname
-  var hostname = url.substr(8, url.length - 1 - 8);
-  for (var i = 8, len = url.length; i < len; i++) {
-    if (url[i] === '/') {
-      hostname = url.substr(8, i - 8);
-      break;
-    }
-  }
-  return hostname;
+// ---------------------------------------------------------------------------
+// Popup state storage (per tab). Persisted via chrome.storage.session so the
+// popup can render after the service worker is suspended.
+// ---------------------------------------------------------------------------
+function popupKey(tabId) {
+  return `popup:${tabId}`;
 }
 
-// Fetch and display cert info for a tab
-function updateTab(tab) {
-  // Validate and get tab info
-  if (typeof tab === 'undefined') return;
-  var url = tab.url;
-  var tabId = tab.id;
-  if (typeof url === 'undefined' || typeof tabId === 'undefined') return;
-
-  // Find out page protocol
-  var proto = pageProtocol(url);
-
-  if (proto === 'https') {
-    var hostname = extractHostname(url);
-
-    // Display data if already fetched
-    if (hostname in cachedValidationData) {
-      displayPageInfo(tabId, proto, false, cachedValidationData[hostname])
-      return;
-    }
-
-    // Fetch
-    displayPageInfo(tabId, proto, true, null);
-    fetchCertInfo(hostname, function (data) {
-      // Store response
-      if (data !== null) {
-        cachedValidationData[hostname] = data;
-      }
-      displayPageInfo(tabId, proto, false, data);
-    })
-    return;
-  }
-
-  displayPageInfo(tabId, proto, false, null);
+async function setPopupState(tabId, state) {
+  await chrome.storage.session.set({ [popupKey(tabId)]: state });
 }
 
-// Display page info
-function displayPageInfo(tabId, pageProtocol, loading, validationData) {
-  if (loading) {
-    updateBadge(tabId, colors['gray'], '...');
-    updatePopupData(tabId, null, colors['gray'], 'Loading...', 'Loading validation data, try opening this popup again.');
-    return;
-  }
+async function clearPopupState(tabId) {
+  await chrome.storage.session.remove(popupKey(tabId));
+}
 
-  if (pageProtocol === 'http') {
-    // Show warning for HTTP
-    updateBadge(tabId, colors['orange'], 'i');
-    updatePopupData(tabId, null, colors['orange'], 'HTTP Page', 'Data sent to / received from this site is transmitted in plaintext.');
-  } else if (pageProtocol === 'https') {
-    // HTTPS
-    // If failed to fetch data
-    if (validationData === null) {
-      updateBadge(tabId, colors['red'], '!');
-      updatePopupData(tabId, null, colors['red'], 'Data fetch error', 'Try reloading the page. Note that this extension only works with publicly accessible sites.');
-      return;
-    }
-
-    updatePopupData(tabId, validationData, null, null, null);
-
-    // Expiration warning and errors
-    if (popupData[tabId]['expiration_class'] === 'ExpirationError') {
-      updateBadge(tabId, colors['red'], '⏱');
-    } else if (popupData[tabId]['expiration_class'] === 'ExpirationWarning') {
-      updateBadge(tabId, colors['orange'], '⏱');
-    } else {
-      // Display data
-      updateBadge(tabId, validationData['result_color_hex'], validationData['validation_result_short']);
-    }
-  } else {
-    // Clear badge and popup data
-    updateBadge(tabId, '', '');
-    delete popupData[tabId];
+// ---------------------------------------------------------------------------
+// HTTP
+// ---------------------------------------------------------------------------
+async function fetchCertInfo(hostname) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(API_ENDPOINT, {
+      method: 'GET',
+      headers: { 'x-validate-host': hostname },
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-// Update badge
-function updateBadge(tabId, color, text) {
-  // Don't update if no tabId provided
-  if (typeof tabId === 'undefined') {
-    return;
-  }
+// ---------------------------------------------------------------------------
+// Expiration annotation
+// ---------------------------------------------------------------------------
+function annotateExpiration(data) {
+  let daysUntil = 0;
+  let expirationClass = '';
 
-  if (color !== "") {
-    chrome.browserAction.setBadgeBackgroundColor({ color: color, tabId: tabId });
-  }
-  chrome.browserAction.setBadgeText({ text: text, tabId: tabId });
-}
-
-// Update popup data
-function updatePopupData(tabId, data, color, validationResult, message) {
-  if (data !== null) {
-    popupData[tabId] = data;
-
-    popupData[tabId]['expiration_days_until'] = 0;
-    popupData[tabId]['expiration_class'] = '';
-
-    // extrapolate some expiration data
-    var notAfter = new Date(popupData[tabId]['not_after']);
-    if (notAfter.getTime() === notAfter.getTime()) {  // date validity
-      var now = Date.now();
-
-      var expiration_days_until = Math.floor((notAfter - now) / oneDay);
-      popupData[tabId]['expiration_days_until'] = expiration_days_until;
-
-      // map days until expiration to actual CSS classes
-      if (expiration_days_until <= expirationErrorThresholdDays) {
-        popupData[tabId]['expiration_class'] = 'ExpirationError';
-      } else if (expiration_days_until <= expirationWarningThresholdDays) {
-        popupData[tabId]['expiration_class'] = 'ExpirationWarning';
+  if (data && data.not_after) {
+    const notAfter = new Date(data.not_after);
+    if (!Number.isNaN(notAfter.getTime())) {
+      daysUntil = Math.floor((notAfter.getTime() - Date.now()) / ONE_DAY_MS);
+      if (daysUntil <= EXPIRATION_ERROR_DAYS) {
+        expirationClass = 'ExpirationError';
+      } else if (daysUntil <= EXPIRATION_WARN_DAYS) {
+        expirationClass = 'ExpirationWarning';
       }
     }
-  } else {
-    popupData[tabId] = {};
-    popupData[tabId]['result_color_hex'] = color;
-    popupData[tabId]['validation_result'] = validationResult;
-    popupData[tabId]['subject_organization'] = '';
-    popupData[tabId]['issuer_common_name'] = '';
-    popupData[tabId]['not_after'] = '';
-    popupData[tabId]['expiration_days_until'] = 0;
-    popupData[tabId]['expiration_class'] = '';
-    popupData[tabId]['message'] = message;
+  }
+
+  return { ...data, expiration_days_until: daysUntil, expiration_class: expirationClass };
+}
+
+// ---------------------------------------------------------------------------
+// Badge helpers
+// ---------------------------------------------------------------------------
+async function setBadge(tabId, color, text) {
+  try {
+    if (color) {
+      await chrome.action.setBadgeBackgroundColor({ tabId, color });
+    }
+    await chrome.action.setBadgeText({ tabId, text });
+  } catch (_) {
+    // Tab may have closed.
   }
 }
 
-// Fetch cert info through API
-// Only hostname is sent
-function fetchCertInfo(hostname, callback) {
-  // Create XHR
-  var xhr = new XMLHttpRequest();
-  xhr.onreadystatechange = function () {
-    // Only handle event when request is finished
-    if (xhr.readyState !== 4) {
-      return;
-    }
-
-    if (typeof this.responseText === 'undefined' || this.responseText.length === 0) {
-      callback(null);
-      return;
-    }
-
-    // Parse
-    try {
-      var validationData = JSON.parse(this.responseText);
-      callback(validationData);
-    } catch (e) {
-      callback(null);
-    }
-  };
-
-  // Make request
-  xhr.open('GET', 'https://api.blupig.net/certificate-info/validate', true);
-  xhr.setRequestHeader('x-validate-host', hostname);
-  xhr.send();
+async function clearBadge(tabId) {
+  try {
+    await chrome.action.setBadgeText({ tabId, text: '' });
+  } catch (_) { /* ignore */ }
 }
+
+// ---------------------------------------------------------------------------
+// Rendering: map validation result → badge + popup state
+// ---------------------------------------------------------------------------
+async function renderLoading(tabId) {
+  await setBadge(tabId, COLOR.gray, '...');
+  await setPopupState(tabId, {
+    result_color_hex: COLOR.gray,
+    validation_result: chrome.i18n.getMessage('popupLoading'),
+    message: chrome.i18n.getMessage('popupLoadingMessage'),
+    subject_organization: '',
+    issuer_common_name: '',
+    issuer_organization: '',
+    not_after: '',
+    expiration_days_until: 0,
+    expiration_class: ''
+  });
+}
+
+async function renderHttp(tabId) {
+  await setBadge(tabId, COLOR.orange, 'i');
+  await setPopupState(tabId, {
+    result_color_hex: COLOR.orange,
+    validation_result: chrome.i18n.getMessage('popupHttp'),
+    message: chrome.i18n.getMessage('popupHttpMessage'),
+    subject_organization: '',
+    issuer_common_name: '',
+    issuer_organization: '',
+    not_after: '',
+    expiration_days_until: 0,
+    expiration_class: ''
+  });
+}
+
+async function renderError(tabId) {
+  await setBadge(tabId, COLOR.red, '!');
+  await setPopupState(tabId, {
+    result_color_hex: COLOR.red,
+    validation_result: chrome.i18n.getMessage('popupFetchError'),
+    message: chrome.i18n.getMessage('popupFetchErrorMessage'),
+    subject_organization: '',
+    issuer_common_name: '',
+    issuer_organization: '',
+    not_after: '',
+    expiration_days_until: 0,
+    expiration_class: ''
+  });
+}
+
+async function renderValidation(tabId, data) {
+  const annotated = annotateExpiration(data);
+  await setPopupState(tabId, annotated);
+
+  if (annotated.expiration_class === 'ExpirationError') {
+    await setBadge(tabId, COLOR.red, '⏱');
+  } else if (annotated.expiration_class === 'ExpirationWarning') {
+    await setBadge(tabId, COLOR.orange, '⏱');
+  } else {
+    await setBadge(tabId, annotated.result_color_hex, annotated.validation_result_short || '');
+  }
+}
+
+async function renderNone(tabId) {
+  await clearBadge(tabId);
+  await clearPopupState(tabId);
+}
+
+// ---------------------------------------------------------------------------
+// Tab update pipeline
+// ---------------------------------------------------------------------------
+function parseUrl(rawUrl) {
+  try {
+    return new URL(rawUrl);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function updateTab(tab) {
+  if (!tab || typeof tab.id !== 'number') return;
+  const parsed = parseUrl(tab.url);
+  if (!parsed) {
+    await renderNone(tab.id);
+    return;
+  }
+
+  if (parsed.protocol === 'http:') {
+    await renderHttp(tab.id);
+    return;
+  }
+
+  if (parsed.protocol !== 'https:') {
+    await renderNone(tab.id);
+    return;
+  }
+
+  const hostname = parsed.hostname;
+  const cached = cacheGet(hostname);
+  if (cached) {
+    await renderValidation(tab.id, cached);
+    return;
+  }
+
+  await renderLoading(tab.id);
+  const data = await fetchCertInfo(hostname);
+  if (!data) {
+    await renderError(tab.id);
+    return;
+  }
+  cacheSet(hostname, data);
+  await renderValidation(tab.id, data);
+}
+
+async function updateAllTabs() {
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs.map(updateTab));
+}
+
+// ---------------------------------------------------------------------------
+// Event wiring
+// ---------------------------------------------------------------------------
+chrome.runtime.onInstalled.addListener(() => { updateAllTabs(); });
+chrome.runtime.onStartup.addListener(() => { updateAllTabs(); });
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading' || changeInfo.title === 'Privacy error') {
+    updateTab(tab);
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => { clearPopupState(tabId); });

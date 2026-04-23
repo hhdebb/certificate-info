@@ -1,0 +1,61 @@
+{
+  "appName": {
+    "message": "TLS Certificate Inspector",
+    "description": "Extension name shown in Chrome Web Store and toolbar."
+  },
+  "appDescription": {
+    "message": "See a site's TLS certificate at a glance — validation level (DV/IV/EV), issuer, organization, and expiration countdown.",
+    "description": "Short description shown in Chrome Web Store."
+  },
+  "popupNoPage": {
+    "message": "No HTTP(S) page loaded"
+  },
+  "popupIntro": {
+    "message": "Certificate information will display here when you open an HTTPS page."
+  },
+  "popupLoading": {
+    "message": "Loading..."
+  },
+  "popupLoadingMessage": {
+    "message": "Loading validation data, try opening this popup again."
+  },
+  "popupHttp": {
+    "message": "HTTP Page"
+  },
+  "popupHttpMessage": {
+    "message": "Data sent to / received from this site is transmitted in plaintext."
+  },
+  "popupFetchError": {
+    "message": "Data fetch error"
+  },
+  "popupFetchErrorMessage": {
+    "message": "Try reloading the page. Note that this extension only works with publicly accessible sites."
+  },
+  "sectionOrganization": {
+    "message": "Organization"
+  },
+  "sectionIssuer": {
+    "message": "Issuer"
+  },
+  "sectionExpires": {
+    "message": "Expires"
+  },
+  "expirationUnknown": {
+    "message": "Unknown"
+  },
+  "expirationExpired": {
+    "message": "Certificate expired"
+  },
+  "expirationInDay": {
+    "message": "Expires in $DAYS$ day",
+    "placeholders": {
+      "days": { "content": "$1", "example": "1" }
+    }
+  },
+  "expirationInDays": {
+    "message": "Expires in $DAYS$ days",
+    "placeholders": {
+      "days": { "content": "$1", "example": "42" }
+    }
+  }
+}

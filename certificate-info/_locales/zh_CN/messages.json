@@ -1,0 +1,61 @@
+{
+  "appName": {
+    "message": "证书检查器 – TLS Certificate Inspector",
+    "description": "扩展名称"
+  },
+  "appDescription": {
+    "message": "一眼查看当前网站的 TLS 证书：验证级别（DV/IV/EV）、颁发者、组织和到期倒计时。",
+    "description": "Chrome 应用商店展示的简短介绍"
+  },
+  "popupNoPage": {
+    "message": "未加载 HTTP(S) 页面"
+  },
+  "popupIntro": {
+    "message": "打开 HTTPS 页面后，这里会显示证书信息。"
+  },
+  "popupLoading": {
+    "message": "加载中..."
+  },
+  "popupLoadingMessage": {
+    "message": "正在加载验证数据，请稍后重新打开此弹窗。"
+  },
+  "popupHttp": {
+    "message": "HTTP 页面"
+  },
+  "popupHttpMessage": {
+    "message": "与该站点之间传输的数据均为明文。"
+  },
+  "popupFetchError": {
+    "message": "数据获取失败"
+  },
+  "popupFetchErrorMessage": {
+    "message": "请尝试重新加载页面。本扩展仅对公网可访问的站点生效。"
+  },
+  "sectionOrganization": {
+    "message": "组织"
+  },
+  "sectionIssuer": {
+    "message": "颁发者"
+  },
+  "sectionExpires": {
+    "message": "到期时间"
+  },
+  "expirationUnknown": {
+    "message": "未知"
+  },
+  "expirationExpired": {
+    "message": "证书已过期"
+  },
+  "expirationInDay": {
+    "message": "$DAYS$ 天后到期",
+    "placeholders": {
+      "days": { "content": "$1", "example": "1" }
+    }
+  },
+  "expirationInDays": {
+    "message": "$DAYS$ 天后到期",
+    "placeholders": {
+      "days": { "content": "$1", "example": "42" }
+    }
+  }
+}
