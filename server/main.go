@@ -33,6 +33,10 @@ import (
 )
 
 var evOIDs = map[string]bool{
+	// CA/Browser Forum — universal EV OID (used by most modern CAs)
+	// https://cabforum.org/working-groups/server/extended-validation/
+	"2.23.140.1.1": true,
+
 	// Actalis
 	"1.3.159.1.17.1": true,
 
@@ -52,8 +56,17 @@ var evOIDs = map[string]bool{
 	"1.3.6.1.4.1.17326.10.14.2.1.2": true,
 	"1.3.6.1.4.1.17326.10.8.12.1.2": true,
 
-	// Comodo Group
+	// Certum (Unizeto / Asseco Data Systems)
+	"1.2.616.1.113527.2.5.1.1": true,
+
+	// CFCA (China Financial Certification Authority)
+	"2.16.156.112554.3": true,
+
+	// Comodo / Sectigo
 	"1.3.6.1.4.1.6449.1.2.1.5.1": true,
+
+	// D-TRUST
+	"1.3.6.1.4.1.4788.2.202.1": true,
 
 	// DigiCert
 	"2.16.840.1.114412.2.1":     true,
@@ -72,17 +85,21 @@ var evOIDs = map[string]bool{
 	// Firmaprofesional
 	"1.3.6.1.4.1.13177.10.1.3.10": true,
 
-	// GeoTrust
+	// GDCA (Guang Dong Certificate Authority)
+	"1.2.156.112559.1.1.6.1": true,
+
+	// GeoTrust (now DigiCert)
 	"1.3.6.1.4.1.14370.1.6": true,
 
 	// GlobalSign
 	"1.3.6.1.4.1.4146.1.1": true,
 
-	// Go Daddy
+	// Go Daddy / Starfield
 	"2.16.840.1.114413.1.7.23.3": true,
 
 	// Izenpe
 	"1.3.6.1.4.1.14777.6.1.1": true,
+	"1.3.6.1.4.1.14777.6.1.2": true,
 
 	// Kamu Sertifikasyon Merkezi
 	"2.16.792.1.2.1.1.5.7.1.9": true,
@@ -105,7 +122,7 @@ var evOIDs = map[string]bool{
 	// Starfield Technologies
 	"2.16.840.1.114414.1.7.23.3": true,
 
-	// StartCom Certification Authority
+	// StartCom Certification Authority (defunct, kept for legacy certs)
 	"1.3.6.1.4.1.23223.2":     true,
 	"1.3.6.1.4.1.23223.1.1.1": true,
 
@@ -118,11 +135,14 @@ var evOIDs = map[string]bool{
 	// T-Systems
 	"1.3.6.1.4.1.7879.13.24.1": true,
 
-	// Thawte
+	// Thawte (now DigiCert)
 	"2.16.840.1.113733.1.7.48.1": true,
 
 	// Trustwave
 	"2.16.840.1.114404.1.1.2.4.1": true,
+
+	// TWCA (Taiwan-CA)
+	"1.3.6.1.4.1.40869.1.1.22.3": true,
 
 	// Symantec (VeriSign)
 	"2.16.840.1.113733.1.7.23.6": true,
@@ -132,6 +152,9 @@ var evOIDs = map[string]bool{
 
 	// Wells Fargo
 	"2.16.840.1.114171.500.9": true,
+
+	// WISeKey
+	"2.16.756.5.14.7.4.8": true,
 }
 
 // Cache validation response by hostname
